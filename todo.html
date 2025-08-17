@@ -1,0 +1,386 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Todo • Minimal, Fast, Local</title>
+  <style>
+    :root{
+      --bg:#0f1224;
+      --card:#171a2f;
+      --muted:#8a93b2;
+      --text:#e6e9f5;
+      --accent:#7c5cff;
+      --accent-2:#29d3a3;
+      --danger:#ff6b6b;
+      --yellow:#ffd166;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 70% -10%, rgba(124,92,255,.35), transparent 40%),
+                  radial-gradient(900px 600px at -10% 30%, rgba(41,211,163,.25), transparent 45%),
+                  var(--bg);
+      color:var(--text);
+      display:flex; align-items:center; justify-content:center;
+      padding:32px;
+    }
+    .app{
+      width:100%;
+      max-width:980px;
+      background:rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      overflow:hidden;
+    }
+    header{
+      padding:24px 28px;
+      display:flex; gap:16px; align-items:center; justify-content:space-between;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.4px;
+    }
+    .brand .logo{
+      width:36px; height:36px; border-radius:12px;
+      background: conic-gradient(from 180deg at 50% 50%, var(--accent), var(--accent-2), var(--yellow), var(--accent));
+      box-shadow:0 6px 18px rgba(124,92,255,.35);
+    }
+    .tools{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+    button, .chip, input, select{
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#0c0f21;
+      color:var(--text);
+      padding:10px 12px; font-size:14px;
+    }
+    button{cursor:pointer; transition:.15s transform ease, .2s background ease, .2s border-color ease}
+    button:hover{transform:translateY(-1px); border-color:rgba(255,255,255,.25)}
+    button:active{transform:translateY(0)}
+    .chip{background:#0c0f21; opacity:.9}
+    main{padding:22px 28px 28px}
+    form.add{
+      display:grid; grid-template-columns: 1fr auto auto;
+      gap:10px; margin-bottom:18px;
+    }
+    .input{
+      display:flex; align-items:center; gap:10px;
+      background:var(--card); border:1px solid rgba(255,255,255,.08);
+      padding:8px 12px; border-radius:14px;
+    }
+    .input input[type="text"]{
+      outline:none; border:none; background:transparent; color:var(--text);
+      width:100%; font-size:16px;
+    }
+    .input input[type="date"]{background:transparent; border:none; color:var(--muted)}
+    .filters{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 18px}
+    .filters .chip[aria-pressed="true"]{background:var(--accent); border-color:transparent}
+    ul.list{list-style:none; padding:0; margin:0; display:grid; gap:10px}
+    .item{
+      display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;
+      background:var(--card); border:1px solid rgba(255,255,255,.08);
+      border-radius:14px; padding:10px 12px;
+    }
+    .drag{cursor:grab; user-select:none; font-size:18px; opacity:.8}
+    .title{display:flex; flex-direction:column}
+    .title small{color:var(--muted)}
+    .title .due-soon{color:var(--yellow)}
+    .title .overdue{color:var(--danger)}
+    .title .done{text-decoration: line-through; opacity:.6}
+    .actions{display:flex; gap:6px}
+    .actions button{padding:8px 10px}
+    .muted{color:var(--muted)}
+    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .hidden{display:none !important}
+    .counter{color:var(--muted); font-size:13px}
+    .footer{
+      padding:16px 28px; display:flex; align-items:center; justify-content:space-between;
+      border-top:1px solid rgba(255,255,255,.07); background:rgba(255,255,255,.02)
+    }
+    @media (max-width:720px){
+      form.add{grid-template-columns: 1fr; }
+      header{flex-direction:column; align-items:flex-start}
+      .tools{width:100%; justify-content:space-between}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div>Todo</div>
+          <div class="counter" id="counter">0 items</div>
+        </div>
+      </div>
+      <div class="tools">
+        <button id="exportBtn" title="Backup to file">Export</button>
+        <button id="importBtn" title="Restore from file">Import</button>
+        <button id="clearCompleted" title="Clear completed">Clear Completed</button>
+      </div>
+    </header>
+
+    <main>
+      <form class="add" id="addForm" autocomplete="off">
+        <div class="input">
+          <span>➕</span>
+          <input id="newTitle" type="text" placeholder="Add a task… (press Enter)" aria-label="Task title" required />
+        </div>
+        <input id="newDue" type="date" aria-label="Due date"/>
+        <button type="submit">Add</button>
+      </form>
+
+      <div class="row">
+        <div class="filters" role="tablist" aria-label="Filters">
+          <button class="chip" data-filter="all" aria-pressed="true">All</button>
+          <button class="chip" data-filter="active">Active</button>
+          <button class="chip" data-filter="completed">Completed</button>
+        </div>
+        <div class="input" style="margin-left:auto; min-width:200px">
+          <span>🔎</span>
+          <input id="search" type="text" placeholder="Search…"/>
+        </div>
+      </div>
+
+      <ul class="list" id="list" aria-live="polite"></ul>
+    </main>
+
+    <div class="footer">
+      <span class="muted">Drag • Drop to reorder</span>
+      <span class="muted">Local-first · Offline</span>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = (q, el=document) => el.querySelector(q);
+  const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
+  const uid = () => Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+  const dbKey = "todo.v1";
+  const state = {
+    items: JSON.parse(localStorage.getItem(dbKey) || "[]"),
+    filter: "all",
+    search: ""
+  };
+
+  const list = $("#list");
+  const counter = $("#counter");
+  const addForm = $("#addForm");
+  const newTitle = $("#newTitle");
+  const newDue = $("#newDue");
+  const search = $("#search");
+
+  const save = () => localStorage.setItem(dbKey, JSON.stringify(state.items));
+  const fmtDate = (iso) => {
+    if(!iso) return "";
+    const d=new Date(iso+"T00:00:00");
+    return d.toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+  };
+
+  function render(){
+    // filtering
+    const now = new Date();
+    let items = state.items.slice();
+    if(state.filter==="active") items = items.filter(i => !i.done);
+    if(state.filter==="completed") items = items.filter(i => i.done);
+    if(state.search.trim()) {
+      const q = state.search.toLowerCase();
+      items = items.filter(i => i.title.toLowerCase().includes(q));
+    }
+
+    list.innerHTML = "";
+    items.forEach((item, idx) => list.appendChild(renderItem(item, idx)));
+
+    const remaining = state.items.filter(i => !i.done).length;
+    counter.textContent = `${remaining} item${remaining!==1 ? "s" : ""}`;
+  }
+
+  function renderItem(item, idx){
+    const li = document.createElement("li");
+    li.className = "item";
+    li.draggable = true;
+    li.dataset.id = item.id;
+
+    const drag = document.createElement("div");
+    drag.textContent = "⋮⋮";
+    drag.className="drag";
+    drag.title="Drag to reorder";
+
+    const checkbox = document.createElement("input");
+    checkbox.type="checkbox"; checkbox.checked = item.done;
+    checkbox.addEventListener("change", () => {
+      item.done = checkbox.checked; save(); render();
+    });
+
+    const title = document.createElement("div");
+    title.className="title";
+    const line = document.createElement("div");
+    line.textContent = item.title;
+    if(item.done) line.classList.add("done");
+
+    const small = document.createElement("small");
+    if(item.due){
+      const d = new Date(item.due+"T00:00:00");
+      const today = new Date(); today.setHours(0,0,0,0);
+      small.textContent = "Due "+fmtDate(item.due);
+      if(!item.done){
+        if(d < today) small.classList.add("overdue");
+        else if((d - today)/(1000*60*60*24) <= 2) small.classList.add("due-soon");
+      }
+    } else {
+      small.textContent = "No due date";
+      small.classList.add("muted");
+    }
+    title.appendChild(line);
+    title.appendChild(small);
+
+    const actions = document.createElement("div");
+    actions.className="actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.title="Edit"; editBtn.textContent="Edit";
+    editBtn.addEventListener("click", () => editItem(item));
+
+    const delBtn = document.createElement("button");
+    delBtn.title="Delete"; delBtn.textContent="Delete";
+    delBtn.addEventListener("click", () => {
+      const i = state.items.findIndex(x => x.id===item.id);
+      if(i>-1){ state.items.splice(i,1); save(); render(); }
+    });
+
+    actions.append(editBtn, delBtn);
+
+    // Assemble
+    const left = document.createElement("div");
+    left.appendChild(checkbox);
+
+    li.append(drag, title, actions);
+    li.insertBefore(left, title);
+
+    // drag events
+    li.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", item.id);
+      li.classList.add("dragging");
+    });
+    li.addEventListener("dragend", () => li.classList.remove("dragging"));
+    li.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const dragging = $(".item.dragging");
+      if(!dragging || dragging===li) return;
+      const all = $$(".item");
+      const from = all.indexOf(dragging);
+      const to = all.indexOf(li);
+      if(from<to) li.after(dragging); else li.before(dragging);
+    });
+    li.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData("text/plain");
+      reorder(id, item.id);
+    });
+
+    return li;
+  }
+
+  function reorder(dragId, targetId){
+    const from = state.items.findIndex(i => i.id===dragId);
+    const to = state.items.findIndex(i => i.id===targetId);
+    if(from<0 || to<0 || from===to) return;
+    const [moved] = state.items.splice(from,1);
+    state.items.splice(to,0,moved);
+    save(); render();
+  }
+
+  function editItem(item){
+    const title = prompt("Edit task title:", item.title);
+    if(title===null) return;
+    const due = prompt("Edit due date (YYYY-MM-DD) or leave blank:", item.due || "");
+    item.title = title.trim() || item.title;
+    item.due = (due && /^\d{4}-\d{2}-\d{2}$/.test(due)) ? due : (due===""? "" : item.due);
+    save(); render();
+  }
+
+  addForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const title = newTitle.value.trim();
+    const due = newDue.value;
+    if(!title) return;
+    state.items.unshift({ id: uid(), title, due, done:false, createdAt: Date.now() });
+    newTitle.value = ""; newDue.value = "";
+    save(); render();
+  });
+
+  // filters
+  $$(".filters .chip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $$(".filters .chip").forEach(b => b.setAttribute("aria-pressed","false"));
+      btn.setAttribute("aria-pressed","true");
+      state.filter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  // search
+  search.addEventListener("input", () => {
+    state.search = search.value;
+    render();
+  });
+
+  // clear completed
+  $("#clearCompleted").addEventListener("click", () => {
+    state.items = state.items.filter(i => !i.done);
+    save(); render();
+  });
+
+  // export
+  $("#exportBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(state.items, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "todo-backup.json"; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // import
+  $("#importBtn").addEventListener("click", () => {
+    const inp = document.createElement("input");
+    inp.type="file"; inp.accept=".json,application/json";
+    inp.onchange = async () => {
+      const file = inp.files[0]; if(!file) return;
+      try{
+        const text = await file.text();
+        const items = JSON.parse(text);
+        if(!Array.isArray(items)) throw new Error("Invalid backup");
+        // basic shape check
+        state.items = items.map(x => ({
+          id: x.id || uid(),
+          title: String(x.title || ""),
+          due: x.due || "",
+          done: !!x.done,
+          createdAt: x.createdAt || Date.now()
+        }));
+        save(); render();
+      }catch(err){ alert("Import failed: " + err.message); }
+    };
+    inp.click();
+  });
+
+  // keyboard focus
+  window.addEventListener("keydown", (e) => {
+    if(e.key==="f" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); search.focus(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
